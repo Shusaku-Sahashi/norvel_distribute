@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{{title}}</title>
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+  </head>
+  <body>
+
+  <form method="post" action="action">
+    <div class="container">
+        <!--小説の一覧を表示-->
+        <div class="novel_setting">
+            <select name="novel_list">
+                {% for title in novel_titles %}
+                <option value="{{title}}">{{title}}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="btn btn-primary" name="action" value="SELECT">SELECT</button>
+        </div>
+
+        <!--小説の一覧を表示-->
+        <div class="input_form">
+            <h2><b><u>質問文</u></b></h2>
+            <textarea rows="1" cols="200" class="question" id="name1" name="name1" readonly>
+                {% if message is none %}
+
+                {% else %}
+                {{message.question}}
+                {% endif %}
+            </textarea>
+        </div>
+
+        <!--小説の一覧を表示-->
+        <div class="answer_term">
+              <h2><b><u>応答文</u></b></h2>
+              <textarea rows="1" cols="200" class="answer" id="name2" name="name2" readonly>
+                  {% if message is none %}
+
+                  {% else %}
+                  {{message.answer}}
+                  {% endif %}
+              </textarea>
+        </div>
+        <br/>
+
+        <!--プレビュー部分-->
+        <div class="preview_viewer">
+            <textarea name="preview" cols="200" rows="20" readonly>
+                {% if preview is not none %}
+                    {% for letter in preview %}
+                        {{loop.index}} : {{letter}}
+                    {% endfor %}
+                {% endif %}
+            </textarea>
+        </div>
+
+        <!--ボタン-->
+        <div class="buttons">
+            <button type="submit" class="btn btn-default" name="action" value="NEXT">NEXT</button>
+            <button type="submit" class="btn btn-primary" name="action" value="SET">SET</button>
+            <button type="submit" class="btn btn-default" name="action" value="END">END</button>
+        </div>
+
+    </div>
+  </form>
+  </body>
+</html>
