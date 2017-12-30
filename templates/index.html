@@ -51,11 +51,11 @@
         <!--プレビュー部分-->
         <div class="preview_viewer">
             <textarea name="preview" cols="200" rows="20" readonly>
-                {% if preview is not none %}
-                    {% for letter in preview %}
-                        {{loop.index}} : {{letter}}
-                    {% endfor %}
-                {% endif %}
+            {% if preview is not none %}
+            {% for letter in preview %}
+    {{loop.index}} : {{letter}}
+            {% endfor %}
+            {% endif %}
             </textarea>
         </div>
 
