@@ -1,5 +1,6 @@
+#! coding: utf-8
 from flask import Flask, render_template, request, url_for
-import os, random, datetime, pickle, loggger
+import os, random, datetime, pickle, loggger, re
 
 TITLE, URL = ('必殺区分け人', 'index.html')
 TEMP, NOVEL = ('temp', 'novels')
@@ -11,10 +12,10 @@ class User:
     User情報を保持するクラス
     """
 
-    def __init__(self, candidate, novel_title):
+    def __init__(self, novel_title, novel):
         self._userID = self._generate_user_id()
         self._novel_title = novel_title
-        self._candidates = candidate
+        self._novel = novel
         self._done = []
         self._conversation = []
 
@@ -23,7 +24,7 @@ class User:
         次の会話文と、previewを返す
         :return:
         """
-        return (self._candidates.pop(0), self._candidates[:4]) if len(self._candidates) else (None, None)
+        return (self._novel.pop(0), self._novel[:4]) if len(self._novel) else (None, None)
 
     def _generate_user_id(self):
         """
@@ -39,8 +40,8 @@ class User:
         return self._userID
 
     @property
-    def candidates(self):
-        return self._candidates
+    def novel(self):
+        return self._novel
 
     @property
     def done(self):
@@ -54,9 +55,9 @@ class User:
     def novel_title(self):
         return self._novel_title
 
-    @candidates.setter
-    def candidates(self, value):
-        self._candidates = value
+    @novel.setter
+    def novel(self, value):
+        self._novel = value
 
     @done.setter
     def done(self, value):
@@ -73,23 +74,23 @@ def persist_pkl(user):
     :param userID:
     :return:
     """
-    if not isinstance(User, user):
+    if not isinstance(user, User):
         raise TypeError('User クラスのみpikls化が可能です。')
 
     filename = user._userID + '.pkl'
-    with open(os.path.join(os.curdir, [TEMP, filename]), 'wb', encoding='utf-8') as f:
+    with open(os.path.join(os.curdir, TEMP, filename), 'wb') as f:
         pickle.dump(user, f)
 
-def fitch_object(userID):
+def load_pkl(userID):
     """
     userIDに指定
     :param user:
     :return:
     """
-    filename = os.path.join(os.curdir, [TEMP , userID + '.pkl'])
+    filename = os.path.join(os.curdir, TEMP, '{}.pkl'.format(userID))
 
     try:
-        with open(filename, 'rb', encoding='utf-8') as f:
+        with open(filename, 'rb') as f:
             return pickle.load(f)
 
     except FileNotFoundError:
@@ -103,21 +104,24 @@ def fitch_novel_list():
     return [file for _, _, files in os.walk(os.path.join(os.curdir, NOVEL)) for file in files]
 
 
-def extract_dialog_from_file(file):
+def extract_dialog_from_file(novel_title):
     """
     引数として与えられたファイル上から、「」で囲まれる会話文の取得を行う。
     :param file:
     :return:
     """
-    result, temp = [], []
     ch_logger = logger.getChild('fitch_lines')
+
+    result, temp = [], []
     in_talk = False
+    file = os.path.join(os.curdir, NOVEL, novel_title)
 
     try:
         with open(file, 'r', encoding='utf-8') as f:
             line = f.readline()
 
             while line:
+                # TODO \u3000の全角空白を除く
                 if line.startswith('「') and line.find('「', 1) == -1:
                     if line.endswith('」\n'):
                         '一文で会話が終了'
@@ -139,14 +143,17 @@ def extract_dialog_from_file(file):
                 line = f.readline()
 
     except FileNotFoundError:
-        ch_logger.WORNING('{} is not found'.format(file))
+        ch_logger.error('{} is not found'.format(file))
 
     return result
 
 
 def _do_init():
+    novel_title = request.form['novel_list']
+    novel = extract_dialog_from_file(novel_title)
+    user = User(novel, novel_title)
+    persist_pkl(user)
 
-    user = User()
 
 
 def _do_next():

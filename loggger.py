@@ -15,7 +15,6 @@ class logger:
         handler.setFormatter(formatter)
 
         self.logger.addHandler(handler)
-        self.logger.propagate = True
 
         return self.logger
 
