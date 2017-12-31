@@ -26,25 +26,21 @@
         <!--小説の一覧を表示-->
         <div class="input_form">
             <h2><b><u>質問文</u></b></h2>
-            <textarea rows="1" cols="200" class="question" id="name1" name="name1" readonly>
                 {% if message is none %}
-
+                <br>
                 {% else %}
                 {{message.question}}
                 {% endif %}
-            </textarea>
         </div>
 
         <!--小説の一覧を表示-->
         <div class="answer_term">
-              <h2><b><u>応答文</u></b></h2>
-              <textarea rows="1" cols="200" class="answer" id="name2" name="name2" readonly>
-                  {% if message is none %}
-
-                  {% else %}
-                  {{message.answer}}
-                  {% endif %}
-              </textarea>
+            <h2><b><u>応答文</u></b></h2>
+              {% if message is none %}
+              <br>
+              {% else %}
+              {{message.answer}}
+              {% endif %}
         </div>
         <br/>
 
