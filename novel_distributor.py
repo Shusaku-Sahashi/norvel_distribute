@@ -1,6 +1,6 @@
 #! coding: utf-8
-from flask import Flask, render_template, request, url_for
-import os, random, datetime, pickle, loggger, re
+from flask import Flask, render_template, request, make_response
+import os, random, datetime, pickle, loggger, MeCab
 
 TITLE, URL = ('必殺区分け人', 'index.html')
 TEMP, NOVEL = ('temp', 'novels')
@@ -18,6 +18,9 @@ class User:
         self._novel = novel
         self._done = []
         self._conversation = []
+        self._question = None
+        self._answer = None
+        self._preview = None
 
     def fitch_next_candidate(self):
         """
@@ -45,7 +48,7 @@ class User:
 
     @property
     def done(self):
-        return self._done
+        return self._done.pop()
 
     @property
     def conversation(self):
@@ -55,18 +58,41 @@ class User:
     def novel_title(self):
         return self._novel_title
 
+    @property
+    def question(self):
+        return self._question
+
+    @property
+    def answer(self):
+        return self._answer
+
+    @property
+    def preview(self):
+        return self._preview
+
     @novel.setter
     def novel(self, value):
         self._novel = value
 
     @done.setter
     def done(self, value):
-        self._done = value
+        self._done.append(value)
 
     @conversation.setter
     def conversation(self, value):
-        self._conversation = value
+        self._conversation.append(value)
 
+    @question.setter
+    def question(self, value):
+        self._question = value
+
+    @answer.setter
+    def answer(self, value):
+        self._answer = value
+
+    @preview.setter
+    def preview(self, value):
+        self._preview = value
 
 def persist_pkl(user):
     """
@@ -147,30 +173,144 @@ def extract_dialog_from_file(novel_title):
 
     return result
 
+def get_userInfo(novel_title, question, answer, preview):
+    userInfo = {
+        'novel_title'   :   novel_title,
+        'question'      :   question,
+        'answer'        :   answer,
+        'preview'       :   preview
+    }
+    return userInfo
 
-def _do_init():
+def _resume():
+    """
+    COOKIEを元に前回のページを表示
+    :return:
+    """
+    # cookieからuserIDを取得
+    user = load_pkl(request.cookies.get('userID'))
+
+    # webに渡すuserInfoの作成
+    userInfo = get_userInfo(user.novel_title, user.question, user.answer, user.preview)
+
+    return render_template(URL, novel_list=None, userInfo=userInfo)
+
+def _show_init_page():
+    """
+    初期ページの表示
+    :return:
+    """
+    userInfo = get_userInfo(None, None, None, None)
+    return render_template(URL, novel_list=fitch_novel_list(), userInfo=userInfo)
+
+def _initialize():
+    """
+    SELECTボタンが押下された時の処理
+    :return:
+    """
     novel_title = request.form['novel_list']
     novel = extract_dialog_from_file(novel_title)
-    user = User(novel, novel_title)
+
+    # Userクラスの作成とPickle化を実施
+    user = User(novel_title=novel_title, novel=novel)
     persist_pkl(user)
 
+    # 質問文の候補とpreviewの取得
+    user.question, user.preview = question, preview = user.fitch_next_candidate()
+
+    # webに渡すユーザ情報の作成
+    userInfo = get_userInfo(novel_title, question, None, preview)
+
+    # クッキー情報にユーザIDを保持
+    resp = make_response(render_template(URL, novel_list=None, userInfo=userInfo))
+    resp.set_cookie('userID', value=user.userID, max_age=60 * 60 * 24 * 30) # default_30days
+
+    return resp
 
 
-def _do_next():
-    pass
+def _show_next_candidate():
+    """
+    NEXTボタンが押下された時の処理
+    :return:
+    """
+    # pklの取得
+    user = load_pkl(request.cookies.get('userID'))
 
-def _do_set():
-    pass
+    # Userクラス内のパラメータを書き換える。
+    next_letter, preview = user.fitch_next_candidate()
+    user.preview = preview
 
-def _do_end():
-    pass
+    if user.answer is None:
+        user.done = user.question
+        user.question = next_letter
+    else:
+        user.done = user.answer
+        user.answer = next_letter
+
+    # Userクラスの保存
+    persist_pkl(user)
+
+    # webに渡すuserInfoの作成
+    userInfo = get_userInfo(user.novel_title, user.question, user.answer, user.preview)
+
+    return render_template(URL, novel_list=None, userInfo=userInfo)
+
+
+def _persist_dialog():
+    """
+    会話文を『質問文』もしくは、『解答文』として記録する。
+    :return:
+    """
+    # cookieからuserIDを取得
+    user = load_pkl(request.cookies.get('userID'))
+
+    if user.answer:
+        user.conversation = (user.question, user.answer)
+        user.question, user.answer = None, None
+    else:
+        user.answer = 'NEXT'
+
+    # Userクラスの保存
+    persist_pkl(user)
+
+    return _show_next_candidate()
+
+def _end_application():
+    """
+    アプリケージョンの終了を行う。
+    アプリケーションを終了する際に以下の処理を実施する。
+    ①会話文に対してMecabを実施する。
+    ②そのファイルを元にoutputとinputを作成する。
+    :return:
+    """
+    # cookieからuserIDを取得
+    user = load_pkl(request.cookies.get('userID'))
+
+    mt = MeCab.Tagger("-Owakati")
+
+    def make_output_file_name(filename):
+        return os.path.join(os.path.curdir, 'out', '{}_{}.txt'.format(user.userID, filename))
+
+    with open(make_output_file_name('output'), 'w', encoding='utf-8') as f_output, open(make_output_file_name('input'), 'w', encoding='utf-8') as f_input:
+        for question, answer in user.conversation:
+            f_input.writelines(mt.parse(question))
+            f_output.writelines(mt.parse(answer))
+
+    resp = make_response(_show_init_page())
+    resp.set_cookie('userID', expires=0)
+
+    tempfile = os.path.join(os.path.curdir, 'temp', '{}.pkl'.format(user.userID))
+    if os.path.exists(tempfile):
+        os.remove(tempfile)
+
+    return resp
 
 
 res_actions = {
-    'SELECT':   _do_init,
-    'NEXT'  :   _do_next,
-    'SET'   :   _do_set,
-    'END'   :   _do_end
+    'SELECT':   _initialize,
+    'NEXT'  :   _show_next_candidate,
+    'SET'   :   _persist_dialog,
+    'END'   :   _end_application
 }
 
 app = Flask(__name__)
@@ -178,9 +318,12 @@ app = Flask(__name__)
 ########################以降はページルーティング#################################
 @app.route('/')
 def index():
-    return render_template(URL, title=TITLE, novel_titles=fitch_novel_list(), message=None, preview=None)
+    if request.cookies.get('userID'):
+        return _resume()
+    else:
+        return _show_init_page()
 
-@app.route('/action', methods=['POST'])
+@app.route('/action', methods=['POST', 'GET'])
 def action():
     return res_actions[request.form['action']]()
 

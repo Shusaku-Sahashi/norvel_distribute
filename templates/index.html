@@ -4,62 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{{title}}</title>
+    <title>必殺区分け人</title>
     <!-- Bootstrap -->
     <link rel="stylesheet" href="/static/css/bootstrap.min.css">
   </head>
   <body>
-
   <form method="post" action="action">
-    <div class="container">
+      <br>
+      <div class="container">
         <!--小説の一覧を表示-->
         <div class="novel_setting">
             <select name="novel_list">
-                {% for title in novel_titles %}
+                <!--novelが選択されているか否かで表示を変える。-->
+                {% if novel_list is not none %}
+                {% for title in novel_list %}
                 <option value="{{title}}">{{title}}</option>
                 {% endfor %}
+                {% else %}
+                <option value="{{title}}">{{userInfo.novel_title}}</option>
+                {% endif %}
             </select>
 
+            <!--novel_listが選択されている場合は、SELECTボタンを表示しない。-->
+            {% if userInfo.novel_title is none %}
             <button type="submit" class="btn btn-primary" name="action" value="SELECT">SELECT</button>
+            {% endif %}
+
         </div>
 
         <!--小説の一覧を表示-->
-        <div class="input_form">
+        <div class="question_term">
             <h2><b><u>質問文</u></b></h2>
-                {% if message is none %}
-                <br>
-                {% else %}
-                {{message.question}}
-                {% endif %}
+            {% if userInfo.question is none %}---{% else %}{{userInfo.question}}{% endif %}
         </div>
 
         <!--小説の一覧を表示-->
         <div class="answer_term">
             <h2><b><u>応答文</u></b></h2>
-              {% if message is none %}
-              <br>
-              {% else %}
-              {{message.answer}}
-              {% endif %}
+            {% if userInfo.answer is none %}---{% else %}{{userInfo.answer}}{% endif %}
         </div>
         <br/>
 
         <!--プレビュー部分-->
         <div class="preview_viewer">
-            <textarea name="preview" cols="200" rows="20" readonly>
-            {% if preview is not none %}
-            {% for letter in preview %}
+            <textarea name="preview" cols="150" rows="15" readonly>
+                {% if userInfo.preview is not none %}{% for letter in userInfo.preview %}
     {{loop.index}} : {{letter}}
-            {% endfor %}
-            {% endif %}
+                {% endfor %}{% endif %}
             </textarea>
         </div>
 
         <!--ボタン-->
         <div class="buttons">
-            <button type="submit" class="btn btn-default" name="action" value="NEXT">NEXT</button>
-            <button type="submit" class="btn btn-primary" name="action" value="SET">SET</button>
-            <button type="submit" class="btn btn-default" name="action" value="END">END</button>
+            {% if novel_list is none %}
+                <button type="submit" class="btn btn-default" name="action" value="NEXT">NEXT</button>
+                <button type="submit" class="btn btn-primary" name="action" value="SET">SET</button>
+                <button type="submit" class="btn btn-default" name="action" value="END">END</button>
+            {% endif %}
         </div>
 
     </div>
